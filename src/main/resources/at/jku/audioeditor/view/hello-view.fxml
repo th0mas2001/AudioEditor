@@ -21,7 +21,7 @@
 <?import javafx.scene.layout.VBox?>
 <?import javafx.scene.text.Font?>
 
-<VBox prefHeight="600" prefWidth="1000" xmlns="http://javafx.com/javafx/24" xmlns:fx="http://javafx.com/fxml/1">
+<VBox prefHeight="600" prefWidth="1000" xmlns="http://javafx.com/javafx/24" xmlns:fx="http://javafx.com/fxml/1" fx:controller="at.jku.audioeditor.ui.MainController">
     <MenuBar>
         <!-- TODO: Insert correct MenuItem -->
         <Menu mnemonicParsing="false" text="File">
@@ -40,7 +40,7 @@
     <BorderPane VBox.vgrow="ALWAYS">
         <top>
             <HBox alignment="CENTER" spacing="30.0" BorderPane.alignment="CENTER">
-                <Button text="Open ...">
+                <Button fx:id="loadAudioButton" text="Open ..." onAction="#loadAudioFile">
                     <tooltip>
                         <Tooltip text="Open an audio file"/>
                     </tooltip>
@@ -80,52 +80,7 @@
         <left>
             <ScrollPane fitToHeight="true" fitToWidth="true" prefWidth="200"
                         style="-fx-background-color: transparent;">
-                <VBox style="-fx-background-color: lightgray; -fx-background-radius: 7;">
-                    <HBox alignment="CENTER_LEFT" spacing="10.0">
-                        <ImageView fitHeight="25" fitWidth="25" pickOnBounds="true" preserveRatio="true">
-                            <Image url="@../icon/audio-file.png"/>
-                        </ImageView>
-                        <Label text="Audio1.wav"/>
-                        <padding>
-                            <Insets bottom="7.0" left="7.0" right="7.0" top="7.0"/>
-                        </padding>
-                    </HBox>
-                    <HBox alignment="CENTER_LEFT" spacing="10.0">
-                        <ImageView fitHeight="25" fitWidth="25" pickOnBounds="true" preserveRatio="true">
-                            <Image url="@../icon/audio-file.png"/>
-                        </ImageView>
-                        <Label text="Audio2.wav"/>
-                        <padding>
-                            <Insets bottom="7.0" left="7.0" right="7.0" top="7.0"/>
-                        </padding>
-                    </HBox>
-                    <HBox alignment="CENTER_LEFT" spacing="10.0">
-                        <ImageView fitHeight="25" fitWidth="25" pickOnBounds="true" preserveRatio="true">
-                            <Image url="@../icon/audio-file.png"/>
-                        </ImageView>
-                        <Label text="Audio3.wav"/>
-                        <padding>
-                            <Insets bottom="7.0" left="7.0" right="7.0" top="7.0"/>
-                        </padding>
-                    </HBox>
-                    <HBox alignment="CENTER_LEFT" spacing="10.0">
-                        <ImageView fitHeight="25" fitWidth="25" pickOnBounds="true" preserveRatio="true">
-                            <Image url="@../icon/audio-file.png"/>
-                        </ImageView>
-                        <Label text="Audio4.wav"/>
-                        <padding>
-                            <Insets bottom="7.0" left="7.0" right="7.0" top="7.0"/>
-                        </padding>
-                    </HBox>
-                    <HBox alignment="CENTER_LEFT" spacing="10.0">
-                        <ImageView fitHeight="25" fitWidth="25" pickOnBounds="true" preserveRatio="true">
-                            <Image url="@../icon/audio-file.png"/>
-                        </ImageView>
-                        <Label text="Audio5.wav"/>
-                        <padding>
-                            <Insets bottom="7.0" left="7.0" right="7.0" top="7.0"/>
-                        </padding>
-                    </HBox>
+                <VBox fx:id="audioItemsVBox" style="-fx-background-color: lightgray; -fx-background-radius: 7;">
                 </VBox>
                 <padding>
                     <Insets left="15.0" right="15.0"/>
@@ -139,7 +94,7 @@
             <HBox spacing="30.0" BorderPane.alignment="CENTER">
                 <VBox spacing="7.0">
                     <!-- Play Button -->
-                    <Button>
+                    <Button fx:id="playButton" onAction="#playAudio">
                         <tooltip>
                             <Tooltip text="Play"/>
                         </tooltip>
@@ -151,7 +106,7 @@
                     </Button>
 
                     <!-- Pause Button -->
-                    <Button>
+                    <Button fx:id="pauseButton" onAction="#pauseAudio">
                         <tooltip>
                             <Tooltip text="Pause"/>
                         </tooltip>

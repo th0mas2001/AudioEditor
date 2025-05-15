@@ -20,12 +20,16 @@ public class AudioPlayer implements Runnable {
     private static int audioPlayerCount = 0;
 
     final AudioSource audioSource;
+
     Thread audioThread;
     Runnable threadInterruptionCallback;
     SourceDataLine sourceDataLine;
     AudioFormat outputAudioFormat;
 
     int bytesRead = 0;
+    int totalBytesRead = 0;
+    //needed because SourceDataLine seems to reset Thread interrupt flag
+    volatile boolean interrupted = false;
     byte[] buffer = new byte[AUDIO_BUFFER_DEFAULT_SIZE];
 
     public AudioPlayer(AudioSource audioSource) {
@@ -53,7 +57,7 @@ public class AudioPlayer implements Runnable {
     }
 
     public void play() {
-        //do nothing is thread is currently running
+        //do nothing if thread is currently running
         if(audioThread == null || !audioThread.isAlive()) {
             audioThread = new Thread(this, "AudioPlayer" + audioPlayerCount);
             audioThread.start();
@@ -61,25 +65,22 @@ public class AudioPlayer implements Runnable {
     }
 
     public void pause() {
-        if(!audioThread.isInterrupted()) {
-            audioThread.interrupt();
+        if(!interrupted) {
+            interruptAudioPlayer();
         }
     }
 
     public void stop() {
-        if(!audioThread.isInterrupted()) {
+        if(!interrupted) {
             threadInterruptionCallback = () -> {
                 try {
                     audioSource.getAudioStream().close();
                 } catch (IOException e) {
                     log.warn("Unable to close AudioInputStream.", e);
                 }
-                //reset audiostream
-                audioSource.resetAudioStream();
-                bytesRead = 0;
-                buffer = new byte[AUDIO_BUFFER_DEFAULT_SIZE];
+                resetAudioPlayer();
             };
-            audioThread.interrupt();
+            interruptAudioPlayer();
         }
     }
 
@@ -89,7 +90,7 @@ public class AudioPlayer implements Runnable {
      */
     public void rewindTo(int seconds) {
         threadInterruptionCallback = () -> {
-            audioSource.resetAudioStream();
+            resetAudioPlayer();
             AudioFormat inputAudioFormat = audioSource.getAudioFormat();
             //cut of frame rate
             long frameRate = (long) inputAudioFormat.getFrameRate();
@@ -106,17 +107,23 @@ public class AudioPlayer implements Runnable {
                 log.warn(String.format("Cannot rewind audio %s", audioSource.toString()));
             }
         };
-        audioThread.interrupt();
+        interruptAudioPlayer();
     }
 
     @Override
     public void run() {
-        //audiostream may be closed so get a new one
-        //audioSource.resetAudioStream();
+        //if we reached the end of the audio, we start from the beginning
+        if(totalBytesRead == audioSource.getAudioStream().getFrameLength() * audioSource.getAudioFormat().getFrameSize()) {
+            resetAudioPlayer();
+        } else {
+            //get a new audiostream without resetting progress
+            audioSource.resetAudioStream();
+        }
+
         AudioInputStream audioInputStream = audioSource.getAudioStream();
-        if(bytesRead > 0) {
+        if(totalBytesRead > 0) {
             try {
-                audioInputStream.skip(bytesRead);
+                audioInputStream.skip(totalBytesRead);
             } catch (IOException e) {
                 log.error(String.format("Cannot skip bytes for audio %s. Stopping audio thread %s.", audioSource, audioThread.getName()));
             }
@@ -124,27 +131,47 @@ public class AudioPlayer implements Runnable {
         try {
             sourceDataLine.open(outputAudioFormat);
             sourceDataLine.start();
-            while(((bytesRead = audioInputStream.read(buffer, 0, buffer.length)) != -1))
+            interrupted = false;
+            while(!interrupted && ((bytesRead = audioInputStream.read(buffer, 0, buffer.length)) != -1))
             {
-                if(Thread.currentThread().isInterrupted()) {
-                    break;
-                }
                 // It is possible at this point manipulate the data in buffer[].
                 // The write operation blocks while the system plays the sound.
                 sourceDataLine.write(buffer, 0, bytesRead);
+                totalBytesRead += bytesRead;
             }
         } catch (LineUnavailableException | IOException e) {
             throw new RuntimeException(e);
         } finally {
+            try {
+                audioInputStream.close();
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
             sourceDataLine.close();
+            sourceDataLine.stop();
             // release resources
             sourceDataLine.drain();
         }
 
         //the thread should execute the interrupt routine by himself to avoid blocking
         // and be sure that the running action was stopped properly.
-        if(Thread.currentThread().isInterrupted() && threadInterruptionCallback != null) {
+        if(interrupted && threadInterruptionCallback != null) {
             threadInterruptionCallback.run();
         }
+    }
+
+    private void interruptAudioPlayer() {
+        interrupted = true;
+    }
+
+    private void resetAudioPlayer() {
+        bytesRead = 0;
+        totalBytesRead = 0;
+        buffer = new byte[AUDIO_BUFFER_DEFAULT_SIZE];
+        audioSource.resetAudioStream();
+    }
+
+    public AudioSource getAudioSource() {
+        return audioSource;
     }
 }

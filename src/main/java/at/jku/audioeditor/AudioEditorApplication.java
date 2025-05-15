@@ -2,10 +2,12 @@ package at.jku.audioeditor;
 
 import at.jku.audioeditor.source.FileAudioSource;
 import at.jku.audioeditor.player.AudioPlayer;
+import at.jku.audioeditor.ui.MainController;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
+import javafx.util.Callback;
 import lombok.SneakyThrows;
 
 import java.io.IOException;
@@ -14,14 +16,20 @@ public class AudioEditorApplication extends Application {
     @Override
     public void start(Stage stage) throws IOException {
         FXMLLoader fxmlLoader = new FXMLLoader(AudioEditorApplication.class.getResource("view/hello-view.fxml"));
+        init(fxmlLoader, stage);
         Scene scene = new Scene(fxmlLoader.load(), 1000, 600);
         stage.setTitle("Audio-Visuelles-Multimediastudio");
         stage.setScene(scene);
         stage.show();
     }
 
+    public void init(FXMLLoader loader, Stage stage) {
+        MainController mainController = new MainController(stage);
+        loader.setControllerFactory((c) -> mainController);
+    }
+
     public static void main(String[] args) {
-        test();
+        //test();
         launch();
     }
 

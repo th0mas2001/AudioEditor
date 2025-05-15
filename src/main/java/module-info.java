@@ -7,4 +7,6 @@ module at.jku.audioeditor {
 
     opens at.jku.audioeditor to javafx.fxml;
     exports at.jku.audioeditor;
+
+    opens at.jku.audioeditor.ui to javafx.fxml;
 }
