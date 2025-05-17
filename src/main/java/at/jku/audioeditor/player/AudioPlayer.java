@@ -199,6 +199,10 @@ public class AudioPlayer implements Runnable {
         audioProgressListeners.forEach(listener -> listener.onAudioProgressChanged(audioProgress));
     }
 
+    public void addAudioProgressListener(AudioProgressListener listener) {
+        audioProgressListeners.add(listener);
+    }
+
     public AudioProgress getCurrentAudioProgress() {
         AudioFormat inputAudioFormat = audioSource.getAudioFormat();
         long outputFrameRate = (long) outputAudioFormat.getFrameRate();
