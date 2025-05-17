@@ -27,7 +27,7 @@ public class AudioPlayer implements Runnable {
     AudioFormat outputAudioFormat;
 
     int bytesRead = 0;
-    int totalBytesRead = 0;
+    long totalBytesRead = 0;
     //needed because SourceDataLine seems to reset Thread interrupt flag
     volatile boolean interrupted = false;
     byte[] buffer = new byte[AUDIO_BUFFER_DEFAULT_SIZE];
@@ -38,7 +38,7 @@ public class AudioPlayer implements Runnable {
         try {
             init();
         } catch (LineUnavailableException e) {
-            log.info("Unable to init SourceDataLine for audio writing.", e);
+            log.error("Unable to init SourceDataLine for audio writing.", e);
         }
     }
 
@@ -72,14 +72,7 @@ public class AudioPlayer implements Runnable {
 
     public void stop() {
         if(!interrupted) {
-            threadInterruptionCallback = () -> {
-                try {
-                    audioSource.getAudioStream().close();
-                } catch (IOException e) {
-                    log.warn("Unable to close AudioInputStream.", e);
-                }
-                resetAudioPlayer();
-            };
+            threadInterruptionCallback = this::resetAudioPlayer;
             interruptAudioPlayer();
         }
     }
@@ -101,10 +94,11 @@ public class AudioPlayer implements Runnable {
                 if(skipped != bytesToSkip) {
                     throw new IOException(String.format("Could not skip audio. Skipped %s of %s", skipped, bytesToSkip));
                 }
+                totalBytesRead = bytesToSkip;
                 //play sound. Do not call start, as we are already in the audioThread.
                 run();
             } catch (IOException e) {
-                log.warn(String.format("Cannot rewind audio %s", audioSource.toString()));
+                log.warn(String.format("Cannot rewind audio %s", audioSource));
             }
         };
         interruptAudioPlayer();
@@ -142,6 +136,7 @@ public class AudioPlayer implements Runnable {
         } catch (LineUnavailableException | IOException e) {
             throw new RuntimeException(e);
         } finally {
+            // release resources
             try {
                 audioInputStream.close();
             } catch (IOException e) {
@@ -149,7 +144,6 @@ public class AudioPlayer implements Runnable {
             }
             sourceDataLine.close();
             sourceDataLine.stop();
-            // release resources
             sourceDataLine.drain();
         }
 

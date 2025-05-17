@@ -11,6 +11,8 @@ import javafx.util.Callback;
 import lombok.SneakyThrows;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class AudioEditorApplication extends Application {
     @Override
@@ -21,6 +23,7 @@ public class AudioEditorApplication extends Application {
         stage.setTitle("Audio-Visuelles-Multimediastudio");
         stage.setScene(scene);
         stage.show();
+        List<String> list = new ArrayList<>();
     }
 
     public void init(FXMLLoader loader, Stage stage) {

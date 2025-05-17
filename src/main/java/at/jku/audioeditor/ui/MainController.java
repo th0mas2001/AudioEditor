@@ -12,6 +12,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
+import javafx.scene.layout.Border;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
@@ -78,6 +79,9 @@ public class MainController {
             Button button = new Button();
             button.setText(audioPlayer.getAudioSource().audioId());
             button.setAlignment(Pos.CENTER_LEFT);
+            button.setPrefWidth(audioItemsVBox.getPrefWidth());
+            button.setStyle("-fx-background-radius: 0");
+
             ImageView imageView = new ImageView();
             imageView.setFitHeight(25);
             imageView.setFitWidth(25);

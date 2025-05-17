@@ -80,7 +80,7 @@
         <left>
             <ScrollPane fitToHeight="true" fitToWidth="true" prefWidth="200"
                         style="-fx-background-color: transparent;">
-                <VBox fx:id="audioItemsVBox" style="-fx-background-color: lightgray; -fx-background-radius: 7;">
+                <VBox fx:id="audioItemsVBox" prefWidth="170" style="-fx-background-color: lightgray; -fx-background-radius: 7;">
                 </VBox>
                 <padding>
                     <Insets left="15.0" right="15.0"/>
