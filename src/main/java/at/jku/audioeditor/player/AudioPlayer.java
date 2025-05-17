@@ -1,11 +1,16 @@
 package at.jku.audioeditor.player;
 
+import at.jku.audioeditor.player.progress.AudioProgress;
+import at.jku.audioeditor.player.progress.AudioProgressListener;
+import at.jku.audioeditor.player.progress.AudioProgressLogger;
 import at.jku.audioeditor.source.AudioSource;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.sound.sampled.*;
 import javax.sound.sampled.Line.Info;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Created by IntelliJ IDEA.
@@ -20,6 +25,7 @@ public class AudioPlayer implements Runnable {
     private static int audioPlayerCount = 0;
 
     final AudioSource audioSource;
+    List<AudioProgressListener> audioProgressListeners;
 
     Thread audioThread;
     Runnable threadInterruptionCallback;
@@ -28,6 +34,7 @@ public class AudioPlayer implements Runnable {
 
     int bytesRead = 0;
     long totalBytesRead = 0;
+    volatile double playBackRate = 1.0;
     //needed because SourceDataLine seems to reset Thread interrupt flag
     volatile boolean interrupted = false;
     byte[] buffer = new byte[AUDIO_BUFFER_DEFAULT_SIZE];
@@ -54,12 +61,15 @@ public class AudioPlayer implements Runnable {
                 inputAudioFormat.isBigEndian());
         Info info = new DataLine.Info(SourceDataLine.class, outputAudioFormat);
         sourceDataLine = (SourceDataLine) AudioSystem.getLine(info);
+        audioProgressListeners = new ArrayList<>();
+        audioProgressListeners.add(new AudioProgressLogger());
     }
 
     public void play() {
         //do nothing if thread is currently running
         if(audioThread == null || !audioThread.isAlive()) {
-            audioThread = new Thread(this, "AudioPlayer" + audioPlayerCount);
+            audioThread = new Thread(this, "AudioPlayer" + audioSource.audioId());
+            audioThread.setDaemon(true);
             audioThread.start();
         }
     }
@@ -75,6 +85,18 @@ public class AudioPlayer implements Runnable {
             threadInterruptionCallback = this::resetAudioPlayer;
             interruptAudioPlayer();
         }
+    }
+
+    public void setPlayBackRate(double rate) {
+        playBackRate = rate;
+        playerSettingsChanged();
+    }
+
+    private void playerSettingsChanged() {
+        threadInterruptionCallback = () -> {
+            //TODO: recalculate audioFormat and sourceDataLine
+        };
+        interruptAudioPlayer();
     }
 
     /**
@@ -106,8 +128,9 @@ public class AudioPlayer implements Runnable {
 
     @Override
     public void run() {
+        AudioProgress currentAudioProgress = getCurrentAudioProgress();
         //if we reached the end of the audio, we start from the beginning
-        if(totalBytesRead == audioSource.getAudioStream().getFrameLength() * audioSource.getAudioFormat().getFrameSize()) {
+        if(totalBytesRead == currentAudioProgress.getTotalBytes()) {
             resetAudioPlayer();
         } else {
             //get a new audiostream without resetting progress
@@ -128,10 +151,15 @@ public class AudioPlayer implements Runnable {
             interrupted = false;
             while(!interrupted && ((bytesRead = audioInputStream.read(buffer, 0, buffer.length)) != -1))
             {
+                // underrun?
+                if (sourceDataLine.available() >= sourceDataLine.getBufferSize())
+                    log.info("Underrun detected: available=" + sourceDataLine.available() + " , sourcedataline buffer=" + sourceDataLine.getBufferSize());
+
                 // It is possible at this point manipulate the data in buffer[].
                 // The write operation blocks while the system plays the sound.
                 sourceDataLine.write(buffer, 0, bytesRead);
                 totalBytesRead += bytesRead;
+                notifyProgressListeners();
             }
         } catch (LineUnavailableException | IOException e) {
             throw new RuntimeException(e);
@@ -142,9 +170,9 @@ public class AudioPlayer implements Runnable {
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-            sourceDataLine.close();
-            sourceDataLine.stop();
             sourceDataLine.drain();
+            sourceDataLine.stop();
+            sourceDataLine.close();
         }
 
         //the thread should execute the interrupt routine by himself to avoid blocking
@@ -163,8 +191,32 @@ public class AudioPlayer implements Runnable {
         totalBytesRead = 0;
         buffer = new byte[AUDIO_BUFFER_DEFAULT_SIZE];
         audioSource.resetAudioStream();
+        notifyProgressListeners();
     }
 
+    private void notifyProgressListeners() {
+        AudioProgress audioProgress = getCurrentAudioProgress();
+        audioProgressListeners.forEach(listener -> listener.onAudioProgressChanged(audioProgress));
+    }
+
+    public AudioProgress getCurrentAudioProgress() {
+        AudioFormat inputAudioFormat = audioSource.getAudioFormat();
+        long outputFrameRate = (long) outputAudioFormat.getFrameRate();
+        return AudioProgress.builder()
+                .playBackRate(playBackRate)
+                .frameSize(inputAudioFormat.getFrameSize())
+                .frameRate(outputAudioFormat.getFrameRate())
+                .framesElapsed(totalBytesRead / (inputAudioFormat.getFrameSize()))
+                .secondsElapsed(totalBytesRead / (outputFrameRate * inputAudioFormat.getFrameSize()))
+                .bytesElapsed(totalBytesRead)
+                .totalSeconds(audioSource.getAudioStream().getFrameLength() / outputFrameRate)
+                .totalFrames(audioSource.getAudioStream().getFrameLength())
+                .totalBytes(audioSource.getAudioStream().getFrameLength() * inputAudioFormat.getFrameSize())
+                .latestByteBuffer(buffer)
+                .build();
+    }
+
+    //TODO: do not share Audiosource directly -> modify controllers and make private
     public AudioSource getAudioSource() {
         return audioSource;
     }
